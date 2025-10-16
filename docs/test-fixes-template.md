@@ -43,7 +43,7 @@ ___
 
 
 ### Test Method: testDeleteTrade
-- **Problem:** The test expected HTTP 204 No Content when deleting a trade, but the controller correctly returned 200 OK with a success message.
-- **Root Cause:** The controller’s `deleteTrade()` method returns `ResponseEntity.ok().body("Trade cancelled successfully")` instead of `204 No Content`.
-- **Solution:** Updated the test to expect 200 OK and verify the success message.
+- **Problem:** The test expected HTTP 204 No Content when deleting a trade, but the controller returned 200 OK.
+- **Root Cause:** The controller’s `deleteTrade()` method returns `ResponseEntity.ok().body("Trade cancelled successfully")` instead of `ResponseEntity.noContent()`.
+- **Solution:** Updated the `deleteTrade()` to return `return ResponseEntity.noContent()` Updated the `@ApiResponse(responseCode = "200", …)` annotation to `responseCode = "204"` to match REST conventions..
 - **Impact:** The test now correctly verifies trade deletion behavior and passes successfully.

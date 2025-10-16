@@ -220,8 +220,7 @@ public class TradeControllerTest {
         // When/Then
         mockMvc.perform(delete("/api/trades/1001")
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Trade cancelled successfully"));
+                .andExpect(status().isNoContent());
 
         verify(tradeService).deleteTrade(1001L);
     }
