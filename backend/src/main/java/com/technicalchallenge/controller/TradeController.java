@@ -97,6 +97,11 @@ public class TradeController {
     public ResponseEntity<?> updateTrade(
             @Parameter(description = "Unique identifier of the trade to update", required = true) @PathVariable Long id,
             @Parameter(description = "Updated trade details", required = true) @Valid @RequestBody TradeDTO tradeDTO) {
+
+        if (!tradeDTO.getTradeId().equals(id)) {
+            return ResponseEntity.badRequest().body("Trade ID in path must match Trade ID in request body");
+        }
+
         logger.info("Updating trade with id: {}", id);
         try {
             tradeDTO.setTradeId(id); // Ensure the ID matches
