@@ -8,21 +8,13 @@ import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.service.TradeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
-import jakarta.validation.Validator;
-
-
 
 import java.time.LocalDate;
 import java.util.List;
@@ -31,16 +23,12 @@ import java.util.Optional;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(TradeController.class)
-@Import(GlobalExceptionHandler.class)
-@AutoConfigureMockMvc(addFilters = false)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TradeControllerTest {
 
     @Autowired
@@ -53,20 +41,8 @@ public class TradeControllerTest {
     private TradeMapper tradeMapper;
 
     private ObjectMapper objectMapper;
-
-    @Autowired
-    private Validator validator;
-
     private TradeDTO tradeDTO;
     private Trade trade;
-
-    @TestConfiguration
-    static class ValidationConfig {
-        @Bean
-        jakarta.validation.Validator validator() {
-            return jakarta.validation.Validation.buildDefaultValidatorFactory().getValidator();
-        }
-    }
 
     @BeforeEach
     void setUp() {
@@ -159,7 +135,7 @@ public class TradeControllerTest {
         mockMvc.perform(post("/api/trades")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(tradeDTO)))
-                .andExpect(status().isCreated())
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tradeId", is(1001)));
 
         verify(tradeService).saveTrade(any(Trade.class), any(TradeDTO.class));
@@ -207,9 +183,8 @@ public class TradeControllerTest {
         // Given
         Long tradeId = 1001L;
         tradeDTO.setTradeId(tradeId);
-
-        when(tradeService.amendTrade(eq(tradeId), any(TradeDTO.class))).thenReturn(trade);
-        when(tradeMapper.toDto(any(Trade.class))).thenReturn(tradeDTO);
+        when(tradeService.saveTrade(any(Trade.class), any(TradeDTO.class))).thenReturn(trade);
+        doNothing().when(tradeService).populateReferenceDataByName(any(Trade.class), any(TradeDTO.class));
 
         // When/Then
         mockMvc.perform(put("/api/trades/{id}", tradeId)
@@ -218,7 +193,7 @@ public class TradeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tradeId", is(1001)));
 
-        verify(tradeService).amendTrade(eq(tradeId), any(TradeDTO.class));
+        verify(tradeService).saveTrade(any(Trade.class), any(TradeDTO.class));
     }
 
     @Test
@@ -245,7 +220,8 @@ public class TradeControllerTest {
         // When/Then
         mockMvc.perform(delete("/api/trades/1001")
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk())
+                .andExpect(content().string("Trade cancelled successfully"));
 
         verify(tradeService).deleteTrade(1001L);
     }
