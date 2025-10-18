@@ -77,3 +77,13 @@ when(bookMapper.toDto(book)).thenReturn(bookDTO);
 This ensures proper mapping between `BookDTO` and `Book` during the save operation.
 
 - **Impact:** The `testSaveBook()` test now executes successfully, confirming that `BookService.saveBook()` correctly saves a book entity and returns the expected `BookDTO` response.
+
+### Test Method: testFindBookByNonExistentId()
+
+- **Problem:** The test `testFindBookByNonExistentId()` previously failed with a `NullPointerException` due to the unmocked `BookMapper` dependency in `BookService`. 
+
+- **Root Cause:** `BookMapper` was not mocked, causing a null reference when `BookService.getBookById()` attempted to map the book entity to a DTO. The test itself correctly tested a non-existent book, but the NPE blocked execution.
+
+- **Solution:** By adding `BookMapper` and `CostCenterRepository` mocks in previous fixes, the test now runs successfully without any changes.
+
+- **Impact:** `testFindBookByNonExistentId()` now passes, confirming that `BookService.getBookById()` correctly returns `Optional.empty()` for non-existent book IDs.
