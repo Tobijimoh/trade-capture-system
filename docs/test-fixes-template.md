@@ -59,3 +59,21 @@ This occurred when `BookService.getBookById()` attempted to call `bookMapper.toD
 
 - **Solution:** Added a `@Mock` for `BookMapper` in `BookServiceTest` and stubbed its behavior within `testFindBookById()` using `when(bookMapper.toDto(book)).thenReturn(dto);`. This ensures that the `BookService.getBookById()` call now returns a valid BookDTO when the repository finds a book.
 - **Impact:** The `testFindBookById()` test now runs successfully, verifying that `BookService.getBookById()` correctly retrieves and maps a `Book` entity to a `BookDTO`. This confirms the basic retrieval flow works as intended.
+
+
+### Test Method: testSaveBook()
+- **Problem:** The test `testSaveBook()` failed with a `NullPointerException` stating `"Cannot invoke 'com.technicalchallenge.mapper.BookMapper.toEntity(com.technicalchallenge.dto.BookDTO)' because 'this.bookMapper' is null"`. This occurred when `BookService.saveBook()` attempted to convert a `BookDTO` to a Book entity using the `bookMapper`.
+
+- **Root Cause:** The `BookMapper` dependency in `BookService` was not mocked, causing the `bookMapper` field to be `null` during test execution. When the `saveBook()` method called `bookMapper.toEntity(dto)`, it triggered a `NullPointerException`.
+
+- **Solution:** Added a `@Mock` for `BookMapper` in `BookServiceTest` and stubbed both `bookMapper.toEntity()` and `bookMapper.toDto()` methods within the `testSaveBook()` test:
+
+```java
+when(bookMapper.toEntity(bookDTO)).thenReturn(book);
+when(bookRepository.save(book)).thenReturn(book);
+when(bookMapper.toDto(book)).thenReturn(bookDTO);
+```
+
+This ensures proper mapping between `BookDTO` and `Book` during the save operation.
+
+- **Impact:** The `testSaveBook()` test now executes successfully, confirming that `BookService.saveBook()` correctly saves a book entity and returns the expected `BookDTO` response.

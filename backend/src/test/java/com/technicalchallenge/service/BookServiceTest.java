@@ -52,6 +52,8 @@ public class BookServiceTest {
         BookDTO bookDTO = new BookDTO();
         bookDTO.setId(2L);
         when(bookRepository.save(any(Book.class))).thenReturn(book);
+        when(bookMapper.toEntity(bookDTO)).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookDTO);
 
         BookDTO saved = bookService.saveBook(bookDTO);
         assertNotNull(saved);
