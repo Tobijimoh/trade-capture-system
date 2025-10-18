@@ -1,8 +1,11 @@
 package com.technicalchallenge.service;
 
 import com.technicalchallenge.dto.BookDTO;
+import com.technicalchallenge.mapper.BookMapper;
 import com.technicalchallenge.model.Book;
 import com.technicalchallenge.repository.BookRepository;
+import com.technicalchallenge.repository.CostCenterRepository;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -12,20 +15,31 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class BookServiceTest {
     @Mock
     private BookRepository bookRepository;
+    @Mock
+    private CostCenterRepository costCenterRepository;
+    @Mock
+    private BookMapper bookMapper;
     @InjectMocks
     private BookService bookService;
+
 
     @Test
     void testFindBookById() {
         Book book = new Book();
         book.setId(1L);
+
+        BookDTO dto = new BookDTO();
+        dto.setId(1L);
+
         when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookMapper.toDto(book)).thenReturn(dto);
         Optional<BookDTO> found = bookService.getBookById(1L);
         assertTrue(found.isPresent());
         assertEquals(1L, found.get().getId());

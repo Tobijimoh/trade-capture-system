@@ -47,3 +47,15 @@ ___
 - **Root Cause:** The controller’s `deleteTrade()` method returns `ResponseEntity.ok().body("Trade cancelled successfully")` instead of `ResponseEntity.noContent()`.
 - **Solution:** Updated the `deleteTrade()` to return `return ResponseEntity.noContent()` Updated the `@ApiResponse(responseCode = "200", …)` annotation to `responseCode = "204"` to match REST conventions..
 - **Impact:** The test now correctly verifies trade deletion behavior and passes successfully.
+
+
+## Test Class: BookServiceTest
+
+### Test Method: testFindBookById()
+- **Problem:** The test `testFindBookById()` failed with a `NullPointerException` stating `"Cannot invoke 'Object.getClass()' because 'this.bookMapper' is null"`.
+This occurred when `BookService.getBookById()` attempted to call `bookMapper.toDto()` during the test.
+
+- **Root Cause:** The `BookMapper` dependency was not mocked in the test. When the service method executed, the `bookMapper` field inside `BookService` was `null`, resulting in a `NullPointerException`.
+
+- **Solution:** Added a `@Mock` for `BookMapper` in `BookServiceTest` and stubbed its behavior within `testFindBookById()` using `when(bookMapper.toDto(book)).thenReturn(dto);`. This ensures that the `BookService.getBookById()` call now returns a valid BookDTO when the repository finds a book.
+- **Impact:** The `testFindBookById()` test now runs successfully, verifying that `BookService.getBookById()` correctly retrieves and maps a `Book` entity to a `BookDTO`. This confirms the basic retrieval flow works as intended.
