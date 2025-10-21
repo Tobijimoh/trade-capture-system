@@ -129,3 +129,23 @@ This ensured the `generateCashflows()` method received a valid leg object and pr
     - Cashflow generation logic executes without null pointer issues.
 
 This fix stabilizes the trade creation process for future regression and integration testing.
+
+
+### Test Method: testCreateTrade_InvalidDates_ShouldFail() 
+
+- **Problem:** The test `testCreateTrade_InvalidDates_ShouldFail()` failed with an assertion error:
+```java
+expected: <Wrong error message> but was: <Start date cannot be before trade date>
+indicating that the test was expecting an incorrect error message.
+```
+- **Root Cause:** The `TradeService.validateTradeCreation()` method correctly throws a `RuntimeException` with the message
+"Start date cannot be before trade date" when the trade start date precedes the trade date.
+However, the test was written with a placeholder string `"Wrong error message"`, making it intentionally fail.
+
+- **Solution:** Updated the assertion in the test to check for the correct exception message:
+```java
+assertEquals("Start date cannot be before trade date", exception.getMessage());
+```
+- **Verification:** After updating the assertion, the test passes successfully, confirming that:
+    - The TradeService.createTrade() method correctly validates trade dates.
+    - An exception is thrown with the appropriate error message when the start date is before the trade date.
