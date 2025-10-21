@@ -174,14 +174,20 @@ class TradeServiceTest {
     @Test
     void testAmendTrade_Success() {
         // Given
+        trade.setVersion(1);
+
         when(tradeRepository.findByTradeIdAndActiveTrue(100001L)).thenReturn(Optional.of(trade));
         when(tradeStatusRepository.findByTradeStatus("AMENDED"))
                 .thenReturn(Optional.of(new com.technicalchallenge.model.TradeStatus()));
         when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
 
+        TradeLeg mockLeg = new TradeLeg();
+        mockLeg.setLegId(10L);
+        when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(mockLeg);
+
         // When
         Trade result = tradeService.amendTrade(100001L, tradeDTO);
-
+        
         // Then
         assertNotNull(result);
         verify(tradeRepository, times(2)).save(any(Trade.class)); // Save old and new

@@ -149,3 +149,45 @@ assertEquals("Start date cannot be before trade date", exception.getMessage());
 - **Verification:** After updating the assertion, the test passes successfully, confirming that:
     - The TradeService.createTrade() method correctly validates trade dates.
     - An exception is thrown with the appropriate error message when the start date is before the trade date.
+
+### Test Method: testAmendTrade_Success() 
+
+- **Problem:**
+The `testAmendTrade_Success()` test failed with two related issues.
+Initially, it threw a `NullPointerException` stating:
+```java
+Cannot invoke "java.lang.Integer.intValue()" because the return value of "Trade.getVersion()" is null
+```
+
+After fixing that, it failed again with another NullPointerException in generateCashflows():
+```java
+Cannot invoke "TradeLeg.getLegId()" because "leg" is null
+```
+
+- **Root Cause:** There were two missing initializations in the test setup:
+1. The mock `Trade` entity had a `null` version, causing `existingTrade.getVersion() + 1` to fail when the service attempted to increment it during the amendment process.
+2. The `tradeLegRepository.save()` method was not stubbed, resulting in a `null` leg being returned. When `generateCashflows()` attempted to access `leg.getLegId()`, it caused a NullPointerException.
+
+- **Solution:** 
+1. Initialized the trade version before invoking the service:
+```java
+trade.setVersion(1);
+```
+This ensured that version incrementation (`+1`) executed safely.
+
+2. Added a mock `TradeLeg` and stubbed the repository save method:
+
+```java
+TradeLeg mockLeg = new TradeLeg();
+mockLeg.setLegId(10L);
+when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(mockLeg);
+```
+
+This guaranteed that the `generateCashflows()` method received a valid leg reference.
+
+- **Verification:** After applying both fixes, the test executed successfully.
+The TradeService.amendTrade() method now:
+    - Correctly deactivates the existing trade
+    - Creates a new trade version without NullPointerException
+    - Generates trade legs and associated cashflows successfully
+    - Verifies that both the old and new trades were saved (`verify(tradeRepository, times(2)).save(...)`)
