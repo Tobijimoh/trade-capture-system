@@ -87,3 +87,45 @@ This ensures proper mapping between `BookDTO` and `Book` during the save operati
 - **Solution:** By adding `BookMapper` and `CostCenterRepository` mocks in previous fixes, the test now runs successfully without any changes.
 
 - **Impact:** `testFindBookByNonExistentId()` now passes, confirming that `BookService.getBookById()` correctly returns `Optional.empty()` for non-existent book IDs.
+
+
+## Test Class: TradeServiceTest
+
+### Test Method: testCreateTrade_Success()
+- **Problem:** The `testCreateTrade_Success()` test failed with multiple errors while validating the trade creation workflow. Initially, the test threw a`RuntimeException` stating “Book not found or not set”, and after fixing reference data mocking, it later failed with a `NullPointerException` in the `TradeService.generateCashflows()` method.
+
+- **Root Cause:** There were two main issues causing the failures:
+1. Unmocked reference repositories — The `TradeService.createTrade()` method requires `Book`, `Counterparty`, and `TradeStatus` entities to be present when validating reference data. Since the test didn’t mock the corresponding repositories (`BookRepository`, `CounterpartyRepository`, and `TradeStatusRepository`), the method threw a `RuntimeException` during validation.
+
+2. Unmocked TradeLegRepository.save() behavior —
+`null`, causing a `NullPointerException` when `generateCashflows()` attempted to access `leg.getLegId()`.
+
+- **Solution:** 
+1. Added missing mocks for `BookRepository` and `CounterpartyRepository` at the top of the test class.
+2. Updated the `testCreateTrade_Success()` setup to include valid test data for reference resolution:
+```java
+tradeDTO.setBookName("Book1");
+tradeDTO.setCounterpartyName("Counterparty1");
+tradeDTO.setTradeStatus("NEW");
+```
+
+3. Created mock entities for `Book`, `Counterparty`, and `TradeStatus`, and stubbed the repository methods:
+```java
+when(bookRepository.findByBookName(anyString())).thenReturn(Optional.of(mockBook));
+when(counterpartyRepository.findByName(anyString())).thenReturn(Optional.of(mockCounterparty));
+when(tradeStatusRepository.findByTradeStatus(anyString())).thenReturn(Optional.of(mockStatus));
+```
+
+4. Added a mock `TradeLeg` with a non-null `legId` and stubbed the save call to return it:
+```java
+when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(mockLeg);
+```
+
+This ensured the `generateCashflows()` method received a valid leg object and prevented the NPE.
+
+- **Impact:** The `testCreateTrade_Success()` test now passes successfully, validating the entire trade creation workflow end-to-end. It confirms that:
+    - Reference data (Book, Counterparty, TradeStatus) is correctly resolved.
+    - Trade legs are created and persisted.
+    - Cashflow generation logic executes without null pointer issues.
+
+This fix stabilizes the trade creation process for future regression and integration testing.

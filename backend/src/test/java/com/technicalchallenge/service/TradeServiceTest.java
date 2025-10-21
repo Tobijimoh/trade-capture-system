@@ -2,9 +2,14 @@ package com.technicalchallenge.service;
 
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
+import com.technicalchallenge.model.Book;
+import com.technicalchallenge.model.Counterparty;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeLeg;
+import com.technicalchallenge.model.TradeStatus;
+import com.technicalchallenge.repository.BookRepository;
 import com.technicalchallenge.repository.CashflowRepository;
+import com.technicalchallenge.repository.CounterpartyRepository;
 import com.technicalchallenge.repository.TradeLegRepository;
 import com.technicalchallenge.repository.TradeRepository;
 import com.technicalchallenge.repository.TradeStatusRepository;
@@ -21,6 +26,8 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +47,12 @@ class TradeServiceTest {
 
     @Mock
     private AdditionalInfoService additionalInfoService;
+
+    @Mock
+    private BookRepository bookRepository;
+
+    @Mock
+    private CounterpartyRepository counterpartyRepository;
 
     @InjectMocks
     private TradeService tradeService;
@@ -74,8 +87,29 @@ class TradeServiceTest {
     @Test
     void testCreateTrade_Success() {
         // Given
-        when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
+        tradeDTO.setBookName("Book1");
+        tradeDTO.setCounterpartyName("Counterparty1");
+        tradeDTO.setTradeStatus("NEW");
 
+        Book mockBook = new Book();
+        mockBook.setId(1L);
+
+        Counterparty mockCounterparty = new Counterparty();
+        mockCounterparty.setId(1L);
+
+        TradeStatus mockStatus = new TradeStatus();
+        mockStatus.setId(1L);
+
+        TradeLeg mockLeg = new TradeLeg();
+        mockLeg.setLegId(10L);
+
+        when(bookRepository.findByBookName(anyString())).thenReturn(Optional.of(mockBook));
+        when(counterpartyRepository.findByName(anyString())).thenReturn(Optional.of(mockCounterparty));
+        when(tradeStatusRepository.findByTradeStatus(anyString())).thenReturn(Optional.of(mockStatus));
+
+        when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
+        when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(mockLeg);
+        
         // When
         Trade result = tradeService.createTrade(tradeDTO);
 
@@ -141,7 +175,8 @@ class TradeServiceTest {
     void testAmendTrade_Success() {
         // Given
         when(tradeRepository.findByTradeIdAndActiveTrue(100001L)).thenReturn(Optional.of(trade));
-        when(tradeStatusRepository.findByTradeStatus("AMENDED")).thenReturn(Optional.of(new com.technicalchallenge.model.TradeStatus()));
+        when(tradeStatusRepository.findByTradeStatus("AMENDED"))
+                .thenReturn(Optional.of(new com.technicalchallenge.model.TradeStatus()));
         when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
 
         // When
