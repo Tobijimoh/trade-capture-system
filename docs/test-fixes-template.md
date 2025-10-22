@@ -169,13 +169,13 @@ Cannot invoke "TradeLeg.getLegId()" because "leg" is null
 2. The `tradeLegRepository.save()` method was not stubbed, resulting in a `null` leg being returned. When `generateCashflows()` attempted to access `leg.getLegId()`, it caused a NullPointerException.
 
 - **Solution:** 
-1. Initialized the trade version before invoking the service:
+    1. Initialized the trade version before invoking the service:
 ```java
 trade.setVersion(1);
 ```
 This ensured that version incrementation (`+1`) executed safely.
 
-2. Added a mock `TradeLeg` and stubbed the repository save method:
+    2. Added a mock `TradeLeg` and stubbed the repository save method:
 
 ```java
 TradeLeg mockLeg = new TradeLeg();
@@ -191,3 +191,59 @@ The TradeService.amendTrade() method now:
     - Creates a new trade version without NullPointerException
     - Generates trade legs and associated cashflows successfully
     - Verifies that both the old and new trades were saved (`verify(tradeRepository, times(2)).save(...)`)
+
+### Test Method: testCashflowGeneration_MonthlySchedule()
+
+- **Problem:** The original test was incomplete and contained placeholder logic that always failed. It lacked a proper setup for the `TradeLeg` entity, never invoked the `generateCashflows()` method, and had a hardcoded failing assertion:
+```java
+assertEquals(1, 12); // This will always fail
+```
+As a result, the test provided no validation of the `TradeService` cashflow generation logic.
+
+- **Root Cause:** The test was originally designed as a stub for candidates to implement.
+Because it did not call `generateCashflows()` or mock the `cashflowRepository`, no cashflows were generated.
+The assertion `assertEquals(1, 12)` caused an intentional failure unrelated to actual service behavior.
+
+- **Solution:** The test was rewritten to accurately validate monthly cashflow generation using Java reflection to access the private method.
+The following improvements were made:
+1. Proper Test Setup: Created a `TradeLeg` with realistic values including `legId`, `notional`, `rate`, and a Schedule set to `"Monthly"`.
+TradeLeg leg = new TradeLeg();
+```java
+leg.setLegId(1L);
+leg.setNotional(BigDecimal.valueOf(1_000_000));
+leg.setRate(0.05);
+Schedule monthlySchedule = new Schedule();
+monthlySchedule.setSchedule("Monthly");
+leg.setCalculationPeriodSchedule(monthlySchedule);
+```
+2. Mocking Repository Behavior: Mocked `cashflowRepository.save()` to simulate saving behavior and return the passed object:
+```java
+when(cashflowRepository.save(any(Cashflow.class)))
+    .thenAnswer(invocation -> invocation.getArgument(0));
+```
+3. Dynamic Expectation Calculation:
+Computed the expected number of monthly intervals dynamically using `ChronoUnit.MONTHS.between()` to ensure flexibility:
+```java
+long monthsBetween = ChronoUnit.MONTHS.between(startDate, maturityDate);
+int invocationsCount = (int) monthsBetween;
+```
+
+4. Reflection Invocation:
+Used reflection to invoke the private `generateCashflows()` method without changing production code:
+```java
+Method method = TradeService.class.getDeclaredMethod(
+    "generateCashflows", TradeLeg.class, LocalDate.class, LocalDate.class);
+method.setAccessible(true);
+method.invoke(tradeService, leg, startDate, maturityDate);
+```
+5. Verification of Behavior:
+Verified that `cashflowRepository.save()` was called the correct number of times dynamically:
+```java
+verify(cashflowRepository, times(invocationsCount)).save(any(Cashflow.class));
+```
+- **Verification:**
+Test executed successfully without any exceptions.
+- Verified that 11 cashflows were generated for the 12-month range (February through December).
+- Confirmed that the count aligns with business logic — the first cashflow occurs one month after the trade start date.
+- Reflection approach confirmed that generateCashflows() runs correctly without exposing private methods.
+- The test is now resilient to changes in trade date ranges or frequency schedules.

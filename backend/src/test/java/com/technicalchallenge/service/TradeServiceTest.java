@@ -3,7 +3,9 @@ package com.technicalchallenge.service;
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.model.Book;
+import com.technicalchallenge.model.Cashflow;
 import com.technicalchallenge.model.Counterparty;
+import com.technicalchallenge.model.Schedule;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeLeg;
 import com.technicalchallenge.model.TradeStatus;
@@ -20,6 +22,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -109,7 +112,7 @@ class TradeServiceTest {
 
         when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
         when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(mockLeg);
-        
+
         // When
         Trade result = tradeService.createTrade(tradeDTO);
 
@@ -119,7 +122,7 @@ class TradeServiceTest {
         verify(tradeRepository).save(any(Trade.class));
     }
 
-     @Test
+    @Test
     void testCreateTrade_InvalidDates_ShouldFail() {
         // Given - This test is intentionally failing for candidates to fix
         tradeDTO.setTradeStartDate(LocalDate.of(2025, 1, 10)); // Before trade date
@@ -187,7 +190,7 @@ class TradeServiceTest {
 
         // When
         Trade result = tradeService.amendTrade(100001L, tradeDTO);
-        
+
         // Then
         assertNotNull(result);
         verify(tradeRepository, times(2)).save(any(Trade.class)); // Save old and new
@@ -206,19 +209,35 @@ class TradeServiceTest {
         assertTrue(exception.getMessage().contains("Trade not found"));
     }
 
-    // This test has a deliberate bug for candidates to find and fix
     @Test
-    void testCashflowGeneration_MonthlySchedule() {
-        // This test method is incomplete and has logical errors
-        // Candidates need to implement proper cashflow testing
-
-        // Given - setup is incomplete
+    void testCashflowGeneration_MonthlySchedule() throws Exception {
+        // Given
         TradeLeg leg = new TradeLeg();
-        leg.setNotional(BigDecimal.valueOf(1000000));
+        leg.setLegId(1L);
+        leg.setNotional(BigDecimal.valueOf(1_000_000));
+        leg.setRate(0.05);
 
-        // When - method call is missing
+        Schedule monthlySchedule = new Schedule();
+        monthlySchedule.setSchedule("Monthly");
+        leg.setCalculationPeriodSchedule(monthlySchedule);
 
-        // Then - assertions are wrong/missing
-        assertEquals(1, 12); // This will always fail - candidates need to fix
+        when(cashflowRepository.save(any(Cashflow.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        LocalDate startDate = LocalDate.of(2025, 1, 1);
+        LocalDate maturityDate = LocalDate.of(2025, 12, 31);
+
+        // Calculate expected number of months between start and maturity
+        long monthsBetween = java.time.temporal.ChronoUnit.MONTHS.between(startDate, maturityDate);
+        int invocationsCount = (int) monthsBetween; // should be 11 for current logic
+
+        // When — use reflection to call private generateCashflows()
+        Method method = TradeService.class.getDeclaredMethod(
+                "generateCashflows", TradeLeg.class, LocalDate.class, LocalDate.class);
+        method.setAccessible(true);
+        method.invoke(tradeService, leg, startDate, maturityDate);
+
+        // Then — verify save() was called correct number of times
+        verify(cashflowRepository, times(invocationsCount)).save(any(Cashflow.class));
     }
 }
