@@ -56,6 +56,8 @@ public class TradeService {
     private PayRecRepository payRecRepository;
     @Autowired
     private AdditionalInfoService additionalInfoService;
+    @Autowired
+    private TradeValidationService tradeValidationService;
 
     public List<Trade> getAllTrades() {
         logger.info("Retrieving all trades");
@@ -77,6 +79,16 @@ public class TradeService {
             Long generatedTradeId = generateNextTradeId();
             tradeDTO.setTradeId(generatedTradeId);
             logger.info("Generated trade ID: {}", generatedTradeId);
+        }
+
+        // Comprehensive business validations
+        var br = tradeValidationService.validateTradeBusinessRules(tradeDTO);
+        if (!br.isValid()) {
+            throw new RuntimeException(String.join("; ", br.getErrors()));
+        }
+        var lr = tradeValidationService.validateTradeLegConsistency(tradeDTO.getTradeLegs(), tradeDTO);
+        if (!lr.isValid()) {
+            throw new RuntimeException(String.join("; ", lr.getErrors()));
         }
 
         // Validate business rules
@@ -173,7 +185,8 @@ public class TradeService {
                 } else {
                     logger.warn("Trader user not found with firstName: {}", firstName);
                     // Try with loginId as fallback
-                    Optional<ApplicationUser> byLoginId = applicationUserRepository.findByLoginId(tradeDTO.getTraderUserName().toLowerCase());
+                    Optional<ApplicationUser> byLoginId = applicationUserRepository
+                            .findByLoginId(tradeDTO.getTraderUserName().toLowerCase());
                     if (byLoginId.isPresent()) {
                         trade.setTraderUser(byLoginId.get());
                         logger.debug("Found trader user by loginId: {}", tradeDTO.getTraderUserName());
@@ -197,11 +210,13 @@ public class TradeService {
                 Optional<ApplicationUser> userOpt = applicationUserRepository.findByFirstName(firstName);
                 if (userOpt.isPresent()) {
                     trade.setTradeInputterUser(userOpt.get());
-                    logger.debug("Found inputter user: {} {}", userOpt.get().getFirstName(), userOpt.get().getLastName());
+                    logger.debug("Found inputter user: {} {}", userOpt.get().getFirstName(),
+                            userOpt.get().getLastName());
                 } else {
                     logger.warn("Inputter user not found with firstName: {}", firstName);
                     // Try with loginId as fallback
-                    Optional<ApplicationUser> byLoginId = applicationUserRepository.findByLoginId(tradeDTO.getInputterUserName().toLowerCase());
+                    Optional<ApplicationUser> byLoginId = applicationUserRepository
+                            .findByLoginId(tradeDTO.getInputterUserName().toLowerCase());
                     if (byLoginId.isPresent()) {
                         trade.setTradeInputterUser(byLoginId.get());
                         logger.debug("Found inputter user by loginId: {}", tradeDTO.getInputterUserName());
@@ -222,7 +237,8 @@ public class TradeService {
             Optional<TradeType> tradeTypeOpt = tradeTypeRepository.findByTradeType(tradeDTO.getTradeType());
             if (tradeTypeOpt.isPresent()) {
                 trade.setTradeType(tradeTypeOpt.get());
-                logger.debug("Found trade type: {} with ID: {}", tradeTypeOpt.get().getTradeType(), tradeTypeOpt.get().getId());
+                logger.debug("Found trade type: {} with ID: {}", tradeTypeOpt.get().getTradeType(),
+                        tradeTypeOpt.get().getId());
             } else {
                 logger.warn("Trade type not found: {}", tradeDTO.getTradeType());
             }
@@ -232,7 +248,8 @@ public class TradeService {
         }
 
         if (tradeDTO.getTradeSubType() != null) {
-            Optional<TradeSubType> tradeSubTypeOpt = tradeSubTypeRepository.findByTradeSubType(tradeDTO.getTradeSubType());
+            Optional<TradeSubType> tradeSubTypeOpt = tradeSubTypeRepository
+                    .findByTradeSubType(tradeDTO.getTradeSubType());
             if (tradeSubTypeOpt.isPresent()) {
                 trade.setTradeSubType(tradeSubTypeOpt.get());
             } else {
@@ -264,6 +281,15 @@ public class TradeService {
         Optional<Trade> existingTradeOpt = getTradeById(tradeId);
         if (existingTradeOpt.isEmpty()) {
             throw new RuntimeException("Trade not found: " + tradeId);
+        }
+
+        var br = tradeValidationService.validateTradeBusinessRules(tradeDTO);
+        if (!br.isValid()) {
+            throw new RuntimeException(String.join("; ", br.getErrors()));
+        }
+        var lr = tradeValidationService.validateTradeLegConsistency(tradeDTO.getTradeLegs(), tradeDTO);
+        if (!lr.isValid()) {
+            throw new RuntimeException(String.join("; ", lr.getErrors()));
         }
 
         Trade existingTrade = existingTradeOpt.get();
@@ -530,7 +556,8 @@ public class TradeService {
                         throw new RuntimeException("Invalid schedule format: " + schedule);
                     }
                 }
-                throw new RuntimeException("Invalid schedule format: " + schedule + ". Supported formats: Monthly, Quarterly, Semi-annually, Annually, or 1M, 3M, 6M, 12M");
+                throw new RuntimeException("Invalid schedule format: " + schedule
+                        + ". Supported formats: Monthly, Quarterly, Semi-annually, Annually, or 1M, 3M, 6M, 12M");
         }
     }
 
@@ -585,7 +612,8 @@ public class TradeService {
 
     // NEW METHOD: Generate the next trade ID (sequential)
     private Long generateNextTradeId() {
-        // For simplicity, using a static variable. In real scenario, this should be atomic and thread-safe.
+        // For simplicity, using a static variable. In real scenario, this should be
+        // atomic and thread-safe.
         return 10000L + tradeRepository.count();
     }
 }
