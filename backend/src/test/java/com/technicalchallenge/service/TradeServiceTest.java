@@ -15,12 +15,17 @@ import com.technicalchallenge.repository.CounterpartyRepository;
 import com.technicalchallenge.repository.TradeLegRepository;
 import com.technicalchallenge.repository.TradeRepository;
 import com.technicalchallenge.repository.TradeStatusRepository;
+import com.technicalchallenge.validation.ValidationResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
 
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
@@ -30,10 +35,12 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class TradeServiceTest {
 
     @Mock
@@ -57,6 +64,9 @@ class TradeServiceTest {
     @Mock
     private CounterpartyRepository counterpartyRepository;
 
+    @Mock
+    private TradeValidationService tradeValidationService;
+
     @InjectMocks
     private TradeService tradeService;
 
@@ -65,6 +75,8 @@ class TradeServiceTest {
 
     @BeforeEach
     void setUp() {
+        MockitoAnnotations.openMocks(this);
+
         // Set up test data
         tradeDTO = new TradeDTO();
         tradeDTO.setTradeId(100001L);
@@ -85,6 +97,18 @@ class TradeServiceTest {
         trade = new Trade();
         trade.setId(1L);
         trade.setTradeId(100001L);
+
+        // Default stubbing for validation service
+        when(tradeValidationService.validateTradeBusinessRules(any(TradeDTO.class)))
+                .thenReturn(ValidationResult.ok());
+        when(tradeValidationService.validateTradeLegConsistency(anyList(), any(TradeDTO.class)))
+                .thenReturn(ValidationResult.ok());
+
+        // Lenient stubbing for validations
+        lenient().when(tradeValidationService.validateTradeBusinessRules(any(TradeDTO.class)))
+                .thenReturn(ValidationResult.ok());
+        lenient().when(tradeValidationService.validateTradeLegConsistency(anyList(), any(TradeDTO.class)))
+                .thenReturn(ValidationResult.ok());
     }
 
     @Test
@@ -126,6 +150,10 @@ class TradeServiceTest {
     void testCreateTrade_InvalidDates_ShouldFail() {
         // Given - This test is intentionally failing for candidates to fix
         tradeDTO.setTradeStartDate(LocalDate.of(2025, 1, 10)); // Before trade date
+
+        // Override default validation response for this test
+        when(tradeValidationService.validateTradeBusinessRules(any(TradeDTO.class)))
+                .thenReturn(ValidationResult.error("Start date cannot be before trade date"));
 
         // When & Then
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
