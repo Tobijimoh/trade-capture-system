@@ -2,8 +2,8 @@ package com.technicalchallenge.service;
 
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
-import com.technicalchallenge.repository.BookRepository;
-import com.technicalchallenge.repository.CounterpartyRepository;
+import com.technicalchallenge.model.ApplicationUser;
+import com.technicalchallenge.repository.*;
 import com.technicalchallenge.validation.ValidationResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +20,7 @@ import java.util.List;
  * Includes:
  *  - Date validation rules
  *  - Cross-leg consistency checks
- *  - Entity (Book / Counterparty) active status checks
+ *  - Entity (Book / Counterparty / User) active status checks
  *  - Role-based privilege enforcement
  *
  * This service ensures all trade data meets business constraints before persistence.
@@ -32,8 +32,10 @@ public class TradeValidationService {
 
     private final BookRepository bookRepository;
     private final CounterpartyRepository counterpartyRepository;
+    private final ApplicationUserRepository applicationUserRepository;
+    private final UserProfileService userProfileService;
 
-    // Role-based operation constants for clarity and reuse
+    // Role-based operation constants
     public static final String OP_CREATE = "CREATE";
     public static final String OP_AMEND = "AMEND";
     public static final String OP_TERMINATE = "TERMINATE";
@@ -41,16 +43,17 @@ public class TradeValidationService {
     public static final String OP_VIEW = "VIEW";
 
     public TradeValidationService(BookRepository bookRepository,
-                                  CounterpartyRepository counterpartyRepository) {
+                                  CounterpartyRepository counterpartyRepository,
+                                  ApplicationUserRepository applicationUserRepository,
+                                  UserProfileService userProfileService) {
         this.bookRepository = bookRepository;
         this.counterpartyRepository = counterpartyRepository;
+        this.applicationUserRepository = applicationUserRepository;
+        this.userProfileService = userProfileService;
     }
 
     /**
      * Validates business rules across an entire trade.
-     * Covers:
-     *  - Date sequencing and range rules
-     *  - Book and Counterparty reference validity
      */
     public ValidationResult validateTradeBusinessRules(TradeDTO dto) {
         ValidationResult vr = ValidationResult.ok();
@@ -58,43 +61,59 @@ public class TradeValidationService {
 
         applyDateRules(dto, vr);
         applyEntityStatusRules(dto, vr);
+        applyUserActivityRules(dto, vr);
 
         return vr;
     }
 
     /**
      * Validates role-based privileges for a given operation.
-     * Used to enforce the allowed actions for TRADER, SALES, MIDDLE_OFFICE, and SUPPORT.
+     * Uses user profile info to determine permissions.
      */
-    public boolean validateUserPrivileges(String role, String operation, TradeDTO dto) {
-        if (role == null || operation == null) {
-            log.warn("Privilege validation failed: role or operation is null");
-            return false;
+    public ValidationResult validateUserPrivileges(Long userId, String operation, TradeDTO dto) {
+        ValidationResult vr = ValidationResult.ok();
+
+        if (userId == null) {
+            vr.addError("User ID is required for privilege validation");
+            return vr;
         }
+
+        var profileOpt = userProfileService.getUserProfileById(userId);
+        if (profileOpt.isEmpty()) {
+            vr.addError("User profile not found for ID: " + userId);
+            return vr;
+        }
+
+        String role = profileOpt.get().getUserType();
+        boolean allowed;
 
         switch (role.toUpperCase()) {
             case "TRADER":
-                return isAllowed(operation, OP_CREATE, OP_AMEND, OP_TERMINATE, OP_CANCEL, OP_VIEW);
+                allowed = isAllowed(operation, OP_CREATE, OP_AMEND, OP_TERMINATE, OP_CANCEL, OP_VIEW);
+                break;
             case "SALES":
-                return isAllowed(operation, OP_CREATE, OP_AMEND, OP_VIEW);
+                allowed = isAllowed(operation, OP_CREATE, OP_AMEND, OP_VIEW);
+                break;
             case "MIDDLE_OFFICE":
-                return isAllowed(operation, OP_AMEND, OP_VIEW);
+                allowed = isAllowed(operation, OP_AMEND, OP_VIEW);
+                break;
             case "SUPPORT":
-                return OP_VIEW.equalsIgnoreCase(operation);
+                allowed = OP_VIEW.equalsIgnoreCase(operation);
+                break;
             default:
-                log.warn("Privilege validation failed: unknown role '{}'", role);
-                return false;
+                vr.addError("Unknown user role: " + role);
+                return vr;
         }
+
+        if (!allowed) {
+            vr.addError("Role '" + role + "' not allowed to perform operation: " + operation);
+        }
+
+        return vr;
     }
 
     /**
      * Validates consistency and logical correctness across trade legs.
-     * Ensures:
-     *  - Exactly two legs exist
-     *  - Legs have opposite pay/receive flags
-     *  - Floating legs have an index
-     *  - Fixed legs have a rate
-     *  - Trade maturity is defined
      */
     public ValidationResult validateTradeLegConsistency(List<TradeLegDTO> legs, TradeDTO dto) {
         ValidationResult vr = ValidationResult.ok();
@@ -116,7 +135,7 @@ public class TradeValidationService {
         return vr;
     }
 
-    // Helper Methods
+    // ========== PRIVATE HELPERS ==========
 
     /** Validates logical ordering of trade, start, and maturity dates. */
     private void applyDateRules(TradeDTO dto, ValidationResult vr) {
@@ -142,7 +161,6 @@ public class TradeValidationService {
 
     /** Ensures referenced entities (Book, Counterparty) exist and are active. */
     private void applyEntityStatusRules(TradeDTO dto, ValidationResult vr) {
-        // --- Book validation ---
         if (dto.getBookId() != null) {
             bookRepository.findById(dto.getBookId())
                     .ifPresentOrElse(b -> {
@@ -155,7 +173,6 @@ public class TradeValidationService {
                     }, () -> vr.addError("Book does not exist"));
         }
 
-        // --- Counterparty validation ---
         if (dto.getCounterpartyId() != null) {
             counterpartyRepository.findById(dto.getCounterpartyId())
                     .ifPresentOrElse(c -> {
@@ -166,6 +183,22 @@ public class TradeValidationService {
                     .ifPresentOrElse(c -> {
                         if (!c.isActive()) vr.addError("Counterparty is not active");
                     }, () -> vr.addError("Counterparty does not exist"));
+        }
+    }
+
+    /** Ensures trader and inputter users exist and are active. */
+    private void applyUserActivityRules(TradeDTO dto, ValidationResult vr) {
+        if (dto.getTraderUserId() != null) {
+            applicationUserRepository.findById(dto.getTraderUserId())
+                    .ifPresentOrElse(u -> {
+                        if (!u.isActive()) vr.addError("Trader user is not active");
+                    }, () -> vr.addError("Trader user not found"));
+        }
+        if (dto.getTradeInputterUserId() != null) {
+            applicationUserRepository.findById(dto.getTradeInputterUserId())
+                    .ifPresentOrElse(u -> {
+                        if (!u.isActive()) vr.addError("Inputter user is not active");
+                    }, () -> vr.addError("Inputter user not found"));
         }
     }
 
