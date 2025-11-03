@@ -128,9 +128,11 @@ public class TradeValidationService {
         TradeLegDTO legB = legs.get(1);
 
         applyMaturityCheck(dto, vr);
+        applyMaturityMatchCheck(dto, legs, vr);
         applyPayReceiveCheck(legA, legB, vr);
         applyLegTypeRules(legA, "A", vr);
         applyLegTypeRules(legB, "B", vr);
+        applyCashflowConsistencyCheck(legs, dto, vr);
 
         return vr;
     }
@@ -224,6 +226,53 @@ public class TradeValidationService {
         if ("Fixed".equalsIgnoreCase(leg.getLegType()) && leg.getRate() == null)
             vr.addError("Fixed leg " + label + " must have a valid rate");
     }
+
+        /** Ensures all legs have cashflows that align with trade maturity date. */
+    private void applyMaturityMatchCheck(TradeDTO dto, List<TradeLegDTO> legs, ValidationResult vr) {
+        if (dto.getTradeMaturityDate() == null) {
+            return;
+        }
+
+        for (TradeLegDTO leg : legs) {
+            if (leg.getCashflows() == null) {
+                continue;
+            }
+
+            leg.getCashflows().forEach(cf -> {
+                if (cf.getValueDate() != null && cf.getValueDate().isAfter(dto.getTradeMaturityDate())) {
+                    vr.addError("Cashflow date " + cf.getValueDate() + " cannot exceed trade maturity date");
+                }
+            });
+        }
+    }
+
+    /** Ensures all cashflows occur within the trade's valid date range (start → maturity). */
+    private void applyCashflowConsistencyCheck(List<TradeLegDTO> legs, TradeDTO dto, ValidationResult vr) {
+        if (dto.getTradeStartDate() == null || dto.getTradeMaturityDate() == null) {
+            return;
+        }
+
+        for (TradeLegDTO leg : legs) {
+            if (leg.getCashflows() == null) {
+                continue;
+            }
+
+            leg.getCashflows().forEach(cf -> {
+                if (cf.getValueDate() == null) {
+                    return;
+                }
+
+                if (cf.getValueDate().isBefore(dto.getTradeStartDate())) {
+                    vr.addError("Cashflow date " + cf.getValueDate() + " cannot be before trade start date");
+                }
+
+                if (cf.getValueDate().isAfter(dto.getTradeMaturityDate())) {
+                    vr.addError("Cashflow date " + cf.getValueDate() + " cannot exceed trade maturity date");
+                }
+            });
+        }
+    }
+
 
     /** Utility to simplify operation checks in privilege validation. */
     private boolean isAllowed(String operation, String... allowedOps) {
