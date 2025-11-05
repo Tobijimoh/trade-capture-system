@@ -4,7 +4,9 @@ import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.model.*;
 import com.technicalchallenge.repository.*;
+import com.technicalchallenge.specification.TradeSpecification;
 
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,6 +70,32 @@ public class TradeService {
     public Optional<Trade> getTradeById(Long tradeId) {
         logger.debug("Retrieving trade by id: {}", tradeId);
         return tradeRepository.findByTradeIdAndActiveTrue(tradeId);
+    }
+
+    /**
+     * Performs dynamic multi-criteria trade search using JPA Specifications.
+     * Supports flexible filtering by counterparty, book, trader, status, and date
+     * range.
+     *
+     * @param counterparty optional counterparty name filter
+     * @param book optional book name filter
+     * @param trader optional trader username filter
+     * @param status optional trade status filter
+     * @param fromDate optional lower bound for trade date
+     * @param toDate optional upper bound for maturity date
+     * @return list of matching trades
+     */
+
+    public List<Trade> searchTrades(String counterparty, String book, String trader, String status,
+            LocalDate fromDate, LocalDate toDate) {
+        Specification<Trade> spec = Specification.where(TradeSpecification.hasCounterparty(counterparty))
+                .and(TradeSpecification.hasBook(book))
+                .and(TradeSpecification.hasTrader(trader))
+                .and(TradeSpecification.hasStatus(status))
+                .and(TradeSpecification.hasTradeDateAfter(fromDate))
+                .and(TradeSpecification.hasMaturityDateBefore(toDate));
+
+        return tradeRepository.findAll(spec);
     }
 
     @Transactional

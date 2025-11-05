@@ -19,6 +19,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
+
+import java.time.LocalDate;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -65,6 +67,31 @@ public class TradeController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/search")
+    @Operation(summary = "Search trades by criteria", description = "Search trades using multiple optional filters like counterparty, book, trader, status, and date range")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved matching trades", content = @Content(mediaType = "application/json", schema = @Schema(implementation = TradeDTO.class))),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<List<TradeDTO>> searchTrades(
+            @RequestParam(required = false) String counterparty,
+            @RequestParam(required = false) String book,
+            @RequestParam(required = false) String trader,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate toDate) {
+
+        logger.info("Searching trades by counterparty={}, book={}, trader={}, status={}, fromDate={}, toDate={}",
+                counterparty, book, trader, status, fromDate, toDate);
+
+        var trades = tradeService.searchTrades(counterparty, book, trader, status, fromDate, toDate)
+                .stream()
+                .map(tradeMapper::toDto)
+                .toList();
+
+        return ResponseEntity.ok(trades);
+    }
+
     @PostMapping
     @Operation(summary = "Create new trade", description = "Creates a new trade with the provided details. Automatically generates cashflows and validates business rules.")
     @ApiResponses(value = {
@@ -73,15 +100,14 @@ public class TradeController {
             @ApiResponse(responseCode = "500", description = "Internal server error during trade creation")
     })
     public ResponseEntity<?> createTrade(
-            @Parameter(description = "Trade details for creation", required = true) 
-            @Valid @RequestBody TradeDTO tradeDTO) {
+            @Parameter(description = "Trade details for creation", required = true) @Valid @RequestBody TradeDTO tradeDTO) {
         logger.info("Creating new trade: {}", tradeDTO);
 
         Trade trade = tradeMapper.toEntity(tradeDTO);
         tradeService.populateReferenceDataByName(trade, tradeDTO);
         Trade savedTrade = tradeService.saveTrade(trade, tradeDTO);
         TradeDTO responseDTO = tradeMapper.toDto(savedTrade);
-        
+
         return ResponseEntity.status(HttpStatus.CREATED).body(responseDTO);
 
     }

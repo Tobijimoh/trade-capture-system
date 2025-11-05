@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface TradeRepository extends JpaRepository<Trade, Long> {
+public interface TradeRepository extends JpaRepository<Trade, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Trade> {
     // Existing methods
     List<Trade> findByTradeId(Long tradeId);
 
