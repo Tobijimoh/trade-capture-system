@@ -6,7 +6,11 @@ import com.technicalchallenge.model.*;
 import com.technicalchallenge.repository.*;
 import com.technicalchallenge.specification.TradeSpecification;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -78,11 +82,11 @@ public class TradeService {
      * range.
      *
      * @param counterparty optional counterparty name filter
-     * @param book optional book name filter
-     * @param trader optional trader username filter
-     * @param status optional trade status filter
-     * @param fromDate optional lower bound for trade date
-     * @param toDate optional upper bound for maturity date
+     * @param book         optional book name filter
+     * @param trader       optional trader username filter
+     * @param status       optional trade status filter
+     * @param fromDate     optional lower bound for trade date
+     * @param toDate       optional upper bound for maturity date
      * @return list of matching trades
      */
 
@@ -96,6 +100,55 @@ public class TradeService {
                 .and(TradeSpecification.hasMaturityDateBefore(toDate));
 
         return tradeRepository.findAll(spec);
+    }
+
+    /**
+     * Returns a paginated and sorted list of trades matching the given criteria.
+     * Uses JPA Specifications for dynamic filtering and Spring Data PageRequest for
+     * paging/sorting.
+     *
+     * @param counterparty optional counterparty name filter (contains,
+     *                     case-insensitive)
+     * @param book         optional book name filter (contains, case-insensitive)
+     * @param trader       optional trader username filter (contains,
+     *                     case-insensitive)
+     * @param status       optional trade status filter (contains, case-insensitive)
+     * @param fromDate     optional lower bound for tradeDate (inclusive)
+     * @param toDate       optional upper bound for tradeMaturityDate (inclusive)
+     * @param page         zero-based page index (defaults handled in controller)
+     * @param size         page size (defaults handled in controller)
+     * @param sortBy       field name to sort by (e.g., "tradeDate", "tradeId")
+     * @param sortDir      "asc" or "desc"
+     * @return Page of Trade entities
+     */
+    public Page<Trade> filterTrades(
+            String counterparty,
+            String book,
+            String trader,
+            String status,
+            LocalDate fromDate,
+            LocalDate toDate,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir) {
+        // Build a default sort if inputs are missing/invalid
+        String safeSortBy = (sortBy == null || sortBy.isBlank()) ? "tradeId" : sortBy;
+        Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
+
+        Sort sort = Sort.by(direction, safeSortBy);
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200), sort); // cap size at
+                                                                                                       // 200
+
+        Specification<Trade> spec = Specification
+                .where(TradeSpecification.hasCounterparty(counterparty))
+                .and(TradeSpecification.hasBook(book))
+                .and(TradeSpecification.hasTrader(trader))
+                .and(TradeSpecification.hasStatus(status))
+                .and(TradeSpecification.hasTradeDateAfter(fromDate))
+                .and(TradeSpecification.hasMaturityDateBefore(toDate));
+
+        return tradeRepository.findAll(spec, pageable);
     }
 
     @Transactional

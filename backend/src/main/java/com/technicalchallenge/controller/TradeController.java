@@ -1,10 +1,13 @@
 package com.technicalchallenge.controller;
 
+import com.technicalchallenge.dto.PageResponseDTO;
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.mapper.TradeMapper;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.service.TradeService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -90,6 +93,45 @@ public class TradeController {
                 .toList();
 
         return ResponseEntity.ok(trades);
+    }
+
+    @GetMapping("/filter")
+    @Operation(summary = "Filter trades with pagination and sorting", description = "Use optional filters (counterparty, book, trader, status, date range) combined with page/size/sort")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved paged trades", content = @Content(mediaType = "application/json", schema = @Schema(implementation = TradeDTO.class))),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<PageResponseDTO<TradeDTO>> filterTrades(
+            @RequestParam(required = false) String counterparty,
+            @RequestParam(required = false) String book,
+            @RequestParam(required = false) String trader,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "20") Integer size,
+            @RequestParam(defaultValue = "tradeId") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        logger.info(
+                "Filtering trades page={}, size={}, sortBy={}, sortDir={}, filters=[counterparty={}, book={}, trader={}, status={}, from={}, to={}]",
+                page, size, sortBy, sortDir, counterparty, book, trader, status, fromDate, toDate);
+
+        Page<Trade> tradePage = tradeService.filterTrades(
+                counterparty, book, trader, status, fromDate, toDate, page, size, sortBy, sortDir);
+
+        List<TradeDTO> content = tradePage.getContent().stream()
+                .map(tradeMapper::toDto)
+                .toList();
+
+        PageResponseDTO<TradeDTO> body = new PageResponseDTO<>(
+                content,
+                tradePage.getNumber(),
+                tradePage.getSize(),
+                tradePage.getTotalElements(),
+                tradePage.getTotalPages(),
+                tradePage.isLast());
+
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping
