@@ -155,6 +155,11 @@ public class TradeService {
         return tradeRepository.findAll(spec, pageable);
     }
 
+    public Page<Trade> findByTraderId(Long traderId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("tradeDate").descending());
+        return tradeRepository.findByTraderUser_Id(traderId, pageable);
+    }
+
     @Transactional
     public Trade createTrade(TradeDTO tradeDTO) {
         logger.info("Creating new trade with ID: {}", tradeDTO.getTradeId());

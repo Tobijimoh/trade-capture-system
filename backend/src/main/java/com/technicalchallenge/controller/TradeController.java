@@ -136,6 +136,21 @@ public class TradeController {
         return ResponseEntity.ok(body);
     }
 
+    @GetMapping("/trader/{traderId}")
+    @Operation(summary = "Get trades by trader", description = "Fetches paginated trades for a specific trader")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Trades fetched successfully"),
+            @ApiResponse(responseCode = "404", description = "Trader not found"),
+    })
+    public ResponseEntity<Page<TradeDTO>> getTradesByTrader(
+            @PathVariable Long traderId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Page<Trade> trades = tradeService.findByTraderId(traderId, page, size);
+        Page<TradeDTO> dtoPage = trades.map(tradeMapper::toDto);
+        return ResponseEntity.ok(dtoPage);
+    }
+
     @GetMapping("/rsql")
     @Operation(summary = "Advanced RSQL search for trades", description = "Allows complex search using RSQL-style syntax, e.g. counterparty==UBS;tradeStatus==LIVE;tradeDate>=2024-01-01")
     @ApiResponses(value = {
