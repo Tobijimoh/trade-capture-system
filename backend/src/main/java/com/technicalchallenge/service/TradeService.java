@@ -21,8 +21,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+
 
 @Service
 @Transactional
@@ -451,6 +454,26 @@ public class TradeService {
         trade.setLastTouchTimestamp(LocalDateTime.now());
 
         return tradeRepository.save(trade);
+    }
+
+    /**
+     * Builds a summary of trade statistics for dashboard display.
+     * Returns total, active, and status-based counts.
+     */
+    public Map<String, Long> getTradeSummary() {
+        Map<String, Long> summary = new HashMap<>();
+
+        long totalTrades = tradeRepository.countAllTrades();
+        long activeTrades = tradeRepository.countActiveTrades();
+        long liveTrades = tradeRepository.countByTradeStatus("LIVE");
+        long cancelledTrades = tradeRepository.countByTradeStatus("CANCELLED");
+
+        summary.put("totalTrades", totalTrades);
+        summary.put("activeTrades", activeTrades);
+        summary.put("liveTrades", liveTrades);
+        summary.put("cancelledTrades", cancelledTrades);
+
+        return summary;
     }
 
     private void validateTradeCreation(TradeDTO tradeDTO) {

@@ -27,6 +27,9 @@ import jakarta.validation.Valid;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -300,4 +303,21 @@ public class TradeController {
             return ResponseEntity.badRequest().body("Error cancelling trade: " + e.getMessage());
         }
     }
+
+    @GetMapping("/summary")
+    @Operation(summary = "Get trade summary metrics", description = "Returns total, active, live, and cancelled trade counts for dashboard display.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Summary retrieved successfully"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<Map<String, Long>> getTradeSummary() {
+        try {
+            Map<String, Long> summary = tradeService.getTradeSummary();
+            return ResponseEntity.ok(summary);
+        } catch (Exception e) {
+            logger.error("Error retrieving trade summary: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
 }
