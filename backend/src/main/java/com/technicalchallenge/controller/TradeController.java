@@ -5,6 +5,8 @@ import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.mapper.TradeMapper;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.service.TradeService;
+import com.technicalchallenge.specification.TradeRsqlSpecification;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -132,6 +134,46 @@ public class TradeController {
                 tradePage.isLast());
 
         return ResponseEntity.ok(body);
+    }
+
+    @GetMapping("/rsql")
+    @Operation(summary = "Advanced RSQL search for trades", description = "Allows complex search using RSQL-style syntax, e.g. counterparty==UBS;tradeStatus==LIVE;tradeDate>=2024-01-01")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Trades fetched successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid RSQL query"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<?> queryTrades(
+            @Parameter(description = "RSQL-style query string, e.g. counterparty==UBS;tradeStatus==LIVE") @RequestParam(required = false) String query) {
+
+        logger.info("Performing RSQL search with query: {}", query);
+
+        try {
+            // Handle blank query (fallback to all trades)
+            if (query == null || query.isBlank()) {
+                logger.info("No RSQL query provided — returning all trades");
+                List<TradeDTO> allTrades = tradeService.getAllTrades().stream()
+                        .map(tradeMapper::toDto)
+                        .toList();
+                return ResponseEntity.ok(allTrades);
+            }
+
+            // Perform filtered search
+            TradeRsqlSpecification spec = new TradeRsqlSpecification(query);
+            List<Trade> trades = tradeService.findAll(spec);
+            List<TradeDTO> result = trades.stream()
+                    .map(tradeMapper::toDto)
+                    .toList();
+
+            logger.info("RSQL search returned {} result(s)", result.size());
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            logger.error("Error during RSQL query search: {}", e.getMessage(), e);
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("Error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+        }
+
     }
 
     @PostMapping

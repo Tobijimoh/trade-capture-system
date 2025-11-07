@@ -76,6 +76,10 @@ public class TradeService {
         return tradeRepository.findByTradeIdAndActiveTrue(tradeId);
     }
 
+    public List<Trade> findAll(Specification<Trade> spec) {
+        return tradeRepository.findAll(spec);
+    }
+
     /**
      * Performs dynamic multi-criteria trade search using JPA Specifications.
      * Supports flexible filtering by counterparty, book, trader, status, and date
