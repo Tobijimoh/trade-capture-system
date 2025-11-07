@@ -42,4 +42,19 @@ public interface TradeRepository extends JpaRepository<Trade, Long>, JpaSpecific
     // Count methods for dashboard summary
     long countByActiveTrue();
     long countByTradeStatus_TradeStatus(String tradeStatus);
+
+        // DASHBOARD SUMMARY QUERIES
+
+    /** Counts all trades in the system. */
+    @Query("SELECT COUNT(t) FROM Trade t")
+    long countAllTrades();
+
+    /** Counts all active trades (active = true). */
+    @Query("SELECT COUNT(t) FROM Trade t WHERE t.active = true")
+    long countActiveTrades();
+
+    /** Counts trades by specific trade status name. */
+    @Query("SELECT COUNT(t) FROM Trade t WHERE t.tradeStatus.tradeStatus = :status")
+    long countByTradeStatus(@Param("status") String status);
+
 }
