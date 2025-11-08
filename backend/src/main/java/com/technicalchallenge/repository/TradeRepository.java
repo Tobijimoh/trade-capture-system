@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,9 +42,10 @@ public interface TradeRepository extends JpaRepository<Trade, Long>, JpaSpecific
 
     // Count methods for dashboard summary
     long countByActiveTrue();
+
     long countByTradeStatus_TradeStatus(String tradeStatus);
 
-        // DASHBOARD SUMMARY QUERIES
+    // DASHBOARD SUMMARY QUERIES
 
     /** Counts all trades in the system. */
     @Query("SELECT COUNT(t) FROM Trade t")
@@ -56,5 +58,25 @@ public interface TradeRepository extends JpaRepository<Trade, Long>, JpaSpecific
     /** Counts trades by specific trade status name. */
     @Query("SELECT COUNT(t) FROM Trade t WHERE t.tradeStatus.tradeStatus = :status")
     long countByTradeStatus(@Param("status") String status);
+
+    // BLOTTER SYSTEM QUERIES
+
+    /** Returns trades filtered by trader username. */
+    @Query("SELECT t FROM Trade t WHERE LOWER(t.traderUser.loginId) = LOWER(:loginId)")
+    Page<Trade> findByTraderLoginId(@Param("loginId") String loginId, Pageable pageable);
+
+    /** Returns trades filtered by trade status. */
+    @Query("SELECT t FROM Trade t WHERE LOWER(t.tradeStatus.tradeStatus) = LOWER(:status)")
+    Page<Trade> findByTradeStatusName(@Param("status") String status, Pageable pageable);
+
+    /** Returns trades filtered by date range. */
+    @Query("""
+                SELECT t FROM Trade t
+                WHERE (:fromDate IS NULL OR t.tradeDate >= :fromDate)
+                  AND (:toDate IS NULL OR t.tradeDate <= :toDate)
+            """)
+    Page<Trade> findByTradeDateRange(@Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            Pageable pageable);
 
 }

@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -318,6 +317,28 @@ public class TradeController {
             logger.error("Error retrieving trade summary: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    @GetMapping("/blotter")
+    @Operation(summary = "Get trader blotter", description = "Returns pageable trade list filtered by trader, status, or date range.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Blotter data retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid parameters"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<Page<Trade>> getTraderBlotter(
+            @RequestParam(required = false) String traderLoginId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "tradeId") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        Page<Trade> blotter = tradeService.getTraderBlotter(traderLoginId, status, fromDate, toDate, page, size, sortBy,
+                sortDir);
+        return ResponseEntity.ok(blotter);
     }
 
 }
