@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Map;
 
-
 @Service
 @Transactional
 public class TradeService {
@@ -474,6 +473,33 @@ public class TradeService {
         summary.put("cancelledTrades", cancelledTrades);
 
         return summary;
+    }
+
+    /**
+     * Returns a pageable blotter view for traders with optional filters.
+     */
+    public Page<Trade> getTraderBlotter(
+            String traderLoginId,
+            String status,
+            LocalDate fromDate,
+            LocalDate toDate,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir) {
+
+        Sort.Direction direction = "desc".equalsIgnoreCase(sortDir)
+                ? Sort.Direction.DESC
+                : Sort.Direction.ASC;
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(size, 100), Sort.by(direction, sortBy));
+
+        if (traderLoginId != null && !traderLoginId.isBlank()) {
+            return tradeRepository.findByTraderLoginId(traderLoginId, pageable);
+        } else if (status != null && !status.isBlank()) {
+            return tradeRepository.findByTradeStatusName(status, pageable);
+        } else {
+            return tradeRepository.findByTradeDateRange(fromDate, toDate, pageable);
+        }
     }
 
     private void validateTradeCreation(TradeDTO tradeDTO) {
